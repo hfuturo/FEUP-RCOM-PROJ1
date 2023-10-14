@@ -33,7 +33,7 @@ int llopen(LinkLayer connectionParameters);
 
 // Send data in buf with size bufSize.
 // Return number of chars written, or "-1" on error.
-int llwrite(const unsigned char *buf, int bufSize);
+int llwrite(int fd, const unsigned char *buf, int bufSize);
 
 // Receive data in packet.
 // Return number of chars read, or "-1" on error.
@@ -50,6 +50,8 @@ int close_serial_port(int fd);
 
 int send_supervision_frame(unsigned char C, int fd);
 
-unsigned int calculateBBC(unsigned int A, unsigned int C);
+unsigned char calculateBCC2(const unsigned char* packet, int packet_size);
+
+unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number);
 
 #endif // _LINK_LAYER_H_

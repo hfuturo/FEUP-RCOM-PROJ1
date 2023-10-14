@@ -95,6 +95,11 @@ int llopen(LinkLayer connectionParameters)
                 }
             }
 
+            if (alarmCount >= connectionParameters.nRetransmissions) {
+                close_serial_port(fd);
+                return -1;
+            }
+
             break;
 
         default:
@@ -111,10 +116,18 @@ int llopen(LinkLayer connectionParameters)
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
-int llwrite(const unsigned char *buf, int bufSize)
-{
-    // TODO
 
+//TODO: byte stuffing
+int llwrite(int fd, const unsigned char *buf, int bufSize)
+{
+    if (!buf) {
+        printf("Invalid packet\n");
+        return -1;
+    }
+
+    unsigned char* frame = make_information_frame(buf, bufSize, FRAME_NUMBER_0);
+    if (!frame) return -1;
+    
     return 0;
 }
 
@@ -273,6 +286,11 @@ int open_serial_port(const char* serialPort) {
 
 
 int close_serial_port(int fd) {
+
+    printf("closing serial port\n");
+
+    sleep(1);
+
     if (tcsetattr(fd, TCSANOW, &oldtio) == -1) {
         perror("tcsetattr");
         exit(-1);
@@ -283,10 +301,42 @@ int close_serial_port(int fd) {
 
 int send_supervision_frame(unsigned char C, int fd) {
     unsigned char frame[] = {FLAG, A, C, A^C, FLAG};
-
- /*   for (int i = 0; i < 5; i++) {
-        printf("SENT: 0x%02X\n", frame[i]);
-    } */
-
     return write(fd, frame, 5);
+}
+
+unsigned char calculateBCC2(const unsigned char* packet, int packet_size) {
+    unsigned char BCC2 = packet[0];
+    for (int i = 1; i < packet_size; i++) {
+        BCC2 ^= packet[i];
+    }
+    return BCC2;
+}
+
+unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number) {
+    unsigned char* frame = (unsigned char*)calloc(packet_size + 6, sizeof(unsigned char));
+
+    if (!frame) {
+        printf("Error alocating memory in send_information_frame\n");
+        return NULL;
+    }
+
+    frame[0] = FLAG;
+    frame[1] = A;
+    frame[2] = frame_number;
+    frame[3] = A ^ frame_number;
+
+    if (!memcpy(frame + 4, packet, packet_size)) {
+        printf("Error creating information frame\n");
+        return NULL;
+    }
+
+    frame[3 + packet_size + 1] = calculateBCC2(packet, packet_size);
+    frame[3 + packet_size + 2] = FLAG;
+
+    printf("\nINFORMATION FRAME\n");
+    for (int i = 0; i < packet_size + 6; i++) {
+        printf("pos: %d -> 0x%02X\n", i, frame[i]);
+    }
+
+    return 0;
 }
