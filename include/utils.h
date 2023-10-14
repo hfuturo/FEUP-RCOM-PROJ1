@@ -19,4 +19,8 @@
 #define FRAME_NUMBER_0  0x00
 #define FRAME_NUMBER_1  0x40
 
+#define ESCAPE          0x7D
+#define FLAG_STUFF      0x5E
+#define ESCAPE_STUFF    0x5D
+
 #endif

@@ -6,7 +6,7 @@
 int process_state_receiver(unsigned char frame) {
     static STATE state = START;
 
-    printf("current state: %d\t current buf: 0x%02X\t", state, frame);
+ //   printf("current state: %d\t current buf: 0x%02X\t", state, frame);
 
     switch (frame) {
 
@@ -31,7 +31,7 @@ int process_state_receiver(unsigned char frame) {
             break;
     }
 
-    printf("updated state: %d\n", state);
+  //  printf("updated state: %d\n", state);
 
     if (state == STOP_RCV) {
         state = START;
@@ -44,7 +44,7 @@ int process_state_receiver(unsigned char frame) {
 int process_state_emissor(unsigned char frame) {
     static STATE state = START;
 
-    printf("current state: %d\t current buf: 0x%02X\t", state, frame);
+ //   printf("current state: %d\t current buf: 0x%02X\t", state, frame);
 
     switch (frame) {
 
@@ -73,7 +73,7 @@ int process_state_emissor(unsigned char frame) {
             break;
     }
 
-    printf("updated state: %d\n", state);
+  //  printf("updated state: %d\n", state);
 
     if (state == STOP_RCV) {
         state = START;
@@ -86,7 +86,7 @@ int process_state_emissor(unsigned char frame) {
 int process_state_disc(unsigned char frame) {
     static STATE state = START;
 
-    printf("current state: %d\t current buf: 0x%02X\t", state, frame);
+ //   printf("current state: %d\t current buf: 0x%02X\t", state, frame);
 
     switch (frame) {
 
@@ -115,7 +115,7 @@ int process_state_disc(unsigned char frame) {
             break;
     }
 
-    printf("updated state: %d\n", state);
+  //  printf("updated state: %d\n", state);
 
     if (state == STOP_RCV) {
         state = START;

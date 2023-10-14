@@ -37,7 +37,7 @@ void alarmHandler(int signal) {
 ////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters)
 {
-
+    printf("\nENTERED llopen\n");
     BAUDRATE = connectionParameters.baudRate;
     role = connectionParameters.role;
 
@@ -108,7 +108,7 @@ int llopen(LinkLayer connectionParameters)
 
     }
 
-    printf("left llopen\n");
+    printf("\nLEFT llopen\n");
 
     return fd;
 }
@@ -117,27 +117,69 @@ int llopen(LinkLayer connectionParameters)
 // LLWRITE
 ////////////////////////////////////////////////
 
-//TODO: byte stuffing
-int llwrite(int fd, const unsigned char *buf, int bufSize)
+int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
 {
+    printf("\nENTER llwrite\n");
     if (!buf) {
         printf("Invalid packet\n");
         return -1;
     }
 
-    unsigned char* frame = make_information_frame(buf, bufSize, FRAME_NUMBER_0);
+    unsigned char BCC2 = calculateBCC2(buf, bufSize);
+    int new_packet_size;
+
+    //unsigned char teste[] = {0x02, 0x00, 0x02, 0x7E, 0x05, 0x7D, 0x69};
+    //unsigned char* stuffed_packet = byte_stuffing(teste, 7, &new_packet_size);
+    unsigned char* stuffed_packet = byte_stuffing(buf, bufSize, &new_packet_size);
+    unsigned char* frame = make_information_frame(stuffed_packet, new_packet_size, FRAME_NUMBER_0, BCC2);
     if (!frame) return -1;
     
+    (void)signal(SIGALRM, alarmHandler);
+    STOP = alarmEnabled = FALSE;
+    alarmCount = 0;
+
+    int bytes_written;
+
+    while (STOP == FALSE && alarmCount < ll.nRetransmissions) {
+        if (alarmEnabled == FALSE) {
+            alarm(ll.timeout);
+            alarmEnabled = TRUE;
+
+            bytes_written = write(fd, frame, new_packet_size+6);
+
+            printf("sent %d bytes\n", bytes_written);
+        }
+
+        //TODO: Verificar se foi RR ou RJ
+        alarm(0);
+        STOP = TRUE;
+    }
+
+    printf("\nLEFT llwrite\n");
     return 0;
 }
 
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-int llread(unsigned char *packet)
+int llread(int fd, unsigned char *packet)
 {
-    // TODO
+    printf("\nENTER llread\n");
+    STOP = FALSE;
+    int bytes_received;
 
+    while (STOP == FALSE) {
+        bytes_received = read(fd, packet, MAX_PAYLOAD_SIZE);
+
+        if (bytes_received > 0) {
+            printf("received %d bytes\n", bytes_received);
+            STOP = TRUE;
+        }
+    }
+
+    byte_destuffing(packet, bytes_received);
+
+    printf("\nLEFT llread\n");
     return 0;
 }
 
@@ -147,6 +189,7 @@ int llread(unsigned char *packet)
 //TODO: showStatistics
 int llclose(int showStatistics, int fd, LinkLayer ll)
 {
+    printf("\nENTERED llclose\n");
     int byte, bytes, cycle = 0;
     unsigned char buf;
     STOP = alarmEnabled = FALSE;
@@ -155,7 +198,6 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
     switch (role) {
         
         case LlRx:
-            printf("\nEntered llclose receiver\n\n");
             while (cycle < 2) {
                 while (STOP == FALSE) {
                     byte = read(fd, &buf, 1);
@@ -179,7 +221,6 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
             break;
 
         case LlTx:
-            printf("\nEntered llclose emissor\n\n");
             (void)signal(SIGALRM, alarmHandler);
 
             while (cycle < 2) {
@@ -230,6 +271,7 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
             return -1;
     }
 
+    printf("\nLEFT llclose\n");
     return close_serial_port(fd);
 }
 
@@ -312,7 +354,8 @@ unsigned char calculateBCC2(const unsigned char* packet, int packet_size) {
     return BCC2;
 }
 
-unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number) {
+//TODO: nao esquecer de dar free
+unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number, unsigned char BCC2) {
     unsigned char* frame = (unsigned char*)calloc(packet_size + 6, sizeof(unsigned char));
 
     if (!frame) {
@@ -330,7 +373,7 @@ unsigned char* make_information_frame(const unsigned char* packet, int packet_si
         return NULL;
     }
 
-    frame[3 + packet_size + 1] = calculateBCC2(packet, packet_size);
+    frame[3 + packet_size + 1] = BCC2;
     frame[3 + packet_size + 2] = FLAG;
 
     printf("\nINFORMATION FRAME\n");
@@ -338,5 +381,74 @@ unsigned char* make_information_frame(const unsigned char* packet, int packet_si
         printf("pos: %d -> 0x%02X\n", i, frame[i]);
     }
 
-    return 0;
+    return frame;
+}
+
+//TODO: nao esquecer de dar free
+unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* new_packet_size) {
+    int counter = 0;
+
+    for (int i = 0; i < packet_size; i++) {
+        if (packet[i] == FLAG || packet[i] == ESCAPE) counter++;
+    }
+
+    *new_packet_size = packet_size + counter;
+
+    unsigned char* stuffed_packet = (unsigned char*)calloc(*new_packet_size, sizeof(unsigned char));
+
+    if (!stuffed_packet) {
+        printf("Error stuffing packet\n");
+        return NULL;
+    }
+
+    int pos = 0;
+
+    for (int i = 0; i < packet_size; i++) {
+        if (packet[i] == FLAG) {
+            stuffed_packet[pos++] = ESCAPE;
+            stuffed_packet[pos++] = FLAG_STUFF;
+        }
+        else if (packet[i] == ESCAPE) {
+            stuffed_packet[pos++] = ESCAPE;
+            stuffed_packet[pos++] = ESCAPE_STUFF;
+        }
+        else {
+            stuffed_packet[pos++] = packet[i];
+        }
+    }
+
+    printf("\nSTUFFED PAKCET\n");
+    for (int i = 0; i < *new_packet_size; i++) {
+        printf("pos: %d -> 0x%02X\n", i, stuffed_packet[i]);
+    }
+
+    return stuffed_packet;
+}
+
+int byte_destuffing(unsigned char* packet, int packet_size) {
+    int pos = 0;
+
+    printf("\nSTUFFED PACKET\n");
+    for (int i = 0; i < packet_size; i++) {
+        printf("pos: %d -> 0x%02X\n", i, packet[i]);
+    }
+
+    for (int i = 0; i < packet_size; i++) {
+        if (packet[i] == ESCAPE) {
+            i++;
+            if (packet[i] == FLAG_STUFF) packet[pos++] = FLAG;
+            else packet[pos++] = ESCAPE;
+        }
+        else {
+            packet[pos++] = packet[i];
+        }
+    }
+
+
+    printf("\nDESTUFFED PACKET\n");
+    for (int i = 0; i < pos; i++) {
+        printf("pos: %d -> 0x%02X\n", i, packet[i]);
+    } 
+
+    return pos;
 }

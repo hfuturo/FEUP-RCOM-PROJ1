@@ -47,7 +47,9 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     switch (ll.role) {
 
         case LlRx:
-            
+            unsigned char frame[MAX_PAYLOAD_SIZE];
+
+            llread(fd, frame);
             break;
 
         case LlTx:
@@ -84,7 +86,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
                 return;
             }
 
-            llwrite(fd, open_control_packet, packet_size);
+            llwrite(fd, open_control_packet, packet_size, ll);
 
             error = fclose(fp);
             if (error != 0) {
@@ -107,6 +109,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     llclose(FALSE, fd, ll);
 }
 
+//TODO: nao esquecer de dar free
 unsigned char* make_control_packet(unsigned int control_field, const char* file_name, long int file_size, long int *packet_size) {
     int file_name_size = strlen(file_name);
     int file_size_bytes = (int)ceil(log2f((float)file_size) / 8.0);  // obtem-se o numero de bits e divide-se por 8

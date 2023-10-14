@@ -33,11 +33,11 @@ int llopen(LinkLayer connectionParameters);
 
 // Send data in buf with size bufSize.
 // Return number of chars written, or "-1" on error.
-int llwrite(int fd, const unsigned char *buf, int bufSize);
+int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll);
 
 // Receive data in packet.
 // Return number of chars read, or "-1" on error.
-int llread(unsigned char *packet);
+int llread(int fd, unsigned char *packet);
 
 // Close previously opened connection.
 // if showStatistics == TRUE, link layer should print statistics in the console on close.
@@ -52,6 +52,10 @@ int send_supervision_frame(unsigned char C, int fd);
 
 unsigned char calculateBCC2(const unsigned char* packet, int packet_size);
 
-unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number);
+unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number, unsigned char BCC2);
+
+unsigned char* byte_stuffing(const unsigned char* packet, int packetSize, int* new_packet_size);
+
+int byte_destuffing(unsigned char* packet, int packet_size);
 
 #endif // _LINK_LAYER_H_
