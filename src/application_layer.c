@@ -8,6 +8,7 @@
 #include "application_layer.h"
 #include "link_layer.h"
 #include "utils.h"
+#include "files.h"
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate,
                       int nTries, int timeout, const char *filename)
@@ -161,3 +162,248 @@ unsigned char* make_control_packet(unsigned int control_field, const char* file_
 
     return packet;
 } 
+
+
+int buildControlPacket(unsigned char control, char *fileName, unsigned int fileSize, unsigned char *packetBuf){
+
+    unsigned int n = 3;
+
+    packetBuf[0] = control;
+    packetBuf[1] = TYPE_SIZE;
+
+    unsigned char octNumber = 0;
+    unsigned int current = fileSize;
+
+    while(current > 0){
+
+        unsigned char oct = (unsigned char) (current & 0xff);
+        current = (current >> 8);
+
+        octNumber++;
+
+        for(unsigned char i = octNumber + 2; i >3 ; i--){
+            packetBuf[i] = packetBuf[i-1]; 
+        }
+
+        packetBuf[3]= oct;
+
+    }
+
+    packetBuf[2] = octNumber;
+
+    n += octNumber;
+
+    packetBuf[n++]= TYPE_NAME;
+
+    packetBuf[n++] = (unsigned char) (strlen(fileName)+1);
+
+    for(unsigned int i = 0; i<(strlen(fileName)+1); i++){
+        packetBuf[n + i] = fileName[i];
+    }
+
+    return n + strlen(fileName)+1;
+}
+
+int buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, unsigned char *packetBuf){
+
+    packetBuf[0] = PACKET_DADOS;
+
+    unsigned char l1 = (unsigned char) (dataLenght % 256);
+    unsigned char l2 = (unsigned char) (dataLenght / 256);
+
+    packetBuf[1] = l2;
+    packetBuf[2] = l1;
+
+    for(int i = 0; i< dataLenght; i++){
+        packetBuf[i + 3] = dataBuf[i];
+    }
+
+    return 3 + dataLenght;
+
+}
+
+
+int sendFile(int fd, char *fileName){
+
+    FILE* fp = openFile(fileName, "r");
+
+    if(fp == NULL){
+        return -1;
+    }
+
+    unsigned char packetBuf[PACK_MAX_SIZE];
+
+    unsigned int fileSize = findFileSize(fp);
+
+    unsigned int packetSize = (unsigned int) buildControlPacket(PACKET_START, fileName, fileSize, packetBuf);
+
+    
+    if (llwrite(fd, packetBuf, packetSize) < 0)
+    {
+        closeFile(fp);
+        return -1;
+    }
+
+    unsigned char dataBuf[DATA_MAX_SIZE];
+    unsigned int bytes_read = 0;
+
+    while(TRUE){
+        bytes_read = fread(dataBuf,sizeof(unsigned char),DATA_MAX_SIZE,fp);
+
+        packetSize = buildDataPacket(dataBuf,bytes_read, packetBuf);
+
+        if(bytes_read != DATA_MAX_SIZE){
+            if(feof(fp)){
+                if(llwrite(fd,packetBuf,packetSize) < 0){
+                    closeFile(fp);
+                    return -1;
+                }
+                break;
+            }
+            else{
+                closeFile(fp);
+                return -1;
+            }
+        }
+
+        if(llwrite(fd,packetBuf,packetSize) < 0){
+            closeFile(fp);
+            return -1;
+        }
+    }
+
+    packetSize = buildControlPacket(PACKET_END, fileName, fileSize,  packetBuf);
+
+    if (llwrite(fd, packetBuf, packetSize) < 0)
+    {
+        closeFile(fp);
+        return -1;
+    }
+
+    if (closeFile(fp) != 0){
+        return -1;
+    }
+
+
+    return 0;
+}
+
+
+int rebuildControlPacket(char *fileName, unsigned int *fileSize, unsigned char *packetBuf){
+
+    if((packetBuf[0] != PACKET_START) && (packetBuf[0] != PACKET_END)){
+        return -1;
+    }
+
+    if(packetBuf[1] != TYPE_SIZE){
+        return -1;
+    }
+
+    unsigned char l1 = packetBuf[2];
+
+    for(int i = 0; i < l1; i++){
+        unsigned int tmp = (unsigned int) (packetBuf[i + 3]);
+        (*fileSize) = (*fileSize) | (tmp << (8*(l1-1)));
+    }
+
+    unsigned int n = l1 + 3;
+
+    if(packetBuf[n] != TYPE_NAME){
+        return -1;
+    }
+
+    n++;
+
+    unsigned char nameLenght = packetBuf[n];
+
+    for(unsigned char i = 0; i < nameLenght; i++){
+        fileName[i] = packetBuf[i + n]; 
+    }
+
+    return 0;
+}
+
+
+int rebuildDataPacket(unsigned char *dataBuf, unsigned int *dataLenght, unsigned char *packetBuf){
+
+    if(packetBuf[0] != PACKET_DADOS){
+        return -1;
+    }
+
+    unsigned char l1 = packetBuf[2];
+    unsigned char l2 = packetBuf[1];
+
+    *dataLenght = (unsigned int) ((l2 * 256) + l1);
+
+    for(unsigned int i = 0; i < (*dataLenght); i++){
+        dataBuf[i] = packetBuf[i + 3];
+    }
+
+    return 0;
+}
+
+int receiveFile(int fd){
+
+    unsigned char dataBuf[DATA_MAX_SIZE];
+
+    unsigned char packetBuf[PACK_MAX_SIZE];
+
+    unsigned int packetSize = 0;
+
+    unsigned int fileSizeStart = 0;
+    unsigned int fileSizeEnd = 0;
+
+    char fileName[256];
+
+    packetSize = llread(fd, packetBuf);
+
+    if (packetSize < 0){
+        return -1;
+    }
+
+    if (packetBuf[0] == PACKET_START){
+        if (rebuildControlPacket(fileName, &fileSizeStart, packetBuf) < 0){
+            return -1;
+        }
+    }
+    else{
+        return -1;
+    }
+
+    FILE *fp = openFile(fileName, "w");
+
+    if (fp == NULL){
+        return -1;
+    }
+
+    unsigned int dataLenght;
+    unsigned int count = 0;
+
+    while(TRUE){
+        packetSize = llread(fd, packetBuf);
+        if(packetBuf[0] == PACKET_END){
+            rebuildControlPacket(fileName, &fileSizeEnd, packetBuf);
+            break;  
+        }
+        rebuildDataPacket(dataBuf, &dataLenght, packetBuf);
+        count += dataLenght;
+        
+        if(fwrite(dataBuf,sizeof(unsigned char),dataLenght,fp) < 0){
+            closeFile(fp);
+            return -1;
+        }
+        
+
+    }
+
+    if((count |= fileSizeStart) || (count |= fileSizeEnd)){
+        return -1;
+    }
+
+    if (closeFile(fp) != 0){
+        return -1;
+    }
+
+
+    return 0;
+}

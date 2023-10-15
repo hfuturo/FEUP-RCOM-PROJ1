@@ -19,4 +19,16 @@ unsigned char* make_control_packet(unsigned int control_field, const char* file_
 
 unsigned char* read_control_packet(unsigned char* packet, int packet_size, long int* file_size);
 
+int buildControlPacket(unsigned char control, char *fileName, unsigned int fileSize, unsigned char *packetBuf);
+
+int buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, unsigned char *packetBuf);
+
+int sendFile(int fd, char *fileName);
+
+int rebuildControlPacket(char *fileName, unsigned int *fileSize, unsigned char *packetBuf);
+
+int rebuildDataPacket(unsigned char *dataBuf, unsigned int *dataLenght, unsigned char *packetBuf);
+
+int receiveFile(int fd);
+
 #endif // _APPLICATION_LAYER_H_

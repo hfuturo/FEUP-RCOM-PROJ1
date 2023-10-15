@@ -16,11 +16,17 @@
 #define BCC1_FRAME0     (A^FRAME_NUMBER_0)
 #define BCC1_FRAME1     (A^FRAME_NUMBER_1)
 
-#define PACKET_DADOS   1
-#define PACKET_START   2
-#define PACKET_END     3
-#define PACKET_FILE_SIZE    0
-#define PACKET_FILE_NAME    1   
+#define PACKET_DADOS   0x01
+#define PACKET_START   0x02
+#define PACKET_END     0x03
+#define PACKET_FILE_SIZE    0x00
+#define PACKET_FILE_NAME    0x01   
+
+#define TYPE_SIZE      0x00
+#define TYPE_NAME      0x01
+
+#define DATA_MAX_SIZE   1024 
+#define PACK_MAX_SIZE   (DATA_MAX_SIZE + 3) 
 
 #define FRAME_NUMBER_0  0x00
 #define FRAME_NUMBER_1  0x40
