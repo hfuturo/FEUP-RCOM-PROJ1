@@ -48,8 +48,20 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
         case LlRx:
             unsigned char frame[MAX_PAYLOAD_SIZE];
+            int size = -1;
 
-            llread(fd, frame);
+            while ((size = llread(fd, frame)) < 0);
+ /*           long int file_size;
+            unsigned char* file = read_control_packet(frame + 4, packet_size - 6, &file_size);
+
+            FILE* fp = fopen(, "a+");
+
+            if (!fp) {
+                printf("Error opening file\n");
+                llclose(FALSE, fd, ll);
+            }
+*/
+
             break;
 
         case LlTx:
@@ -94,8 +106,6 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
                 llclose(FALSE, fd, ll);
                 return;
             }
-
-
 
             break;
 

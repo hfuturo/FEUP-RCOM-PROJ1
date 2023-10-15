@@ -22,6 +22,8 @@ int alarmEnabled = FALSE;
 int alarmCount = 0;
 int BAUDRATE;
 LinkLayerRole role;
+int rxTrama = 0;
+int txTrama = 0;
 
 struct termios oldtio;
 
@@ -116,7 +118,6 @@ int llopen(LinkLayer connectionParameters)
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
-
 int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
 {
     printf("\nENTER llwrite\n");
@@ -125,21 +126,27 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
         return -1;
     }
 
-    unsigned char BCC2 = calculateBCC2(buf, bufSize);
     int new_packet_size;
 
-    //unsigned char teste[] = {0x02, 0x00, 0x02, 0x7E, 0x05, 0x7D, 0x69};
-    //unsigned char* stuffed_packet = byte_stuffing(teste, 7, &new_packet_size);
+    unsigned char BCC2 = calculateBCC2(buf, bufSize);
     unsigned char* stuffed_packet = byte_stuffing(buf, bufSize, &new_packet_size);
-    unsigned char* frame = make_information_frame(stuffed_packet, new_packet_size, FRAME_NUMBER_0, BCC2);
+    unsigned char* frame = make_information_frame(stuffed_packet, new_packet_size, txTrama == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1, BCC2);
+
+    //unsigned char teste[] = {0x02, 0x00, 0x02, 0x7E, 0x05, 0x7D, 0x69};
+    //unsigned char BCC2 = calculateBCC2(teste, 7);
+    //unsigned char* stuffed_packet = byte_stuffing(teste, 7, &new_packet_size);
+
     if (!frame) return -1;
     
+    free(stuffed_packet);
+
     (void)signal(SIGALRM, alarmHandler);
     STOP = alarmEnabled = FALSE;
     alarmCount = 0;
 
-    int bytes_written;
+    int bytes_written, answer;
 
+    // FIXME: FIX WHILE LOOP PARA CONSEGUIR RECEBER RESPOSTAS
     while (STOP == FALSE && alarmCount < ll.nRetransmissions) {
         if (alarmEnabled == FALSE) {
             alarm(ll.timeout);
@@ -151,9 +158,26 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
         }
 
         //TODO: Verificar se foi RR ou RJ
+
+        while (TRUE) {
+            unsigned char buf;
+            int bytes_received = read(fd, &buf, 1);
+
+            if (bytes_received > 0) {
+                answer = process_state_confirmation_rejection(buf);
+            }
+
+            if (answer != -1) break;
+        }
+
+        // se rejeitar necessário reenviar trama
+        if (answer == 2 || answer == 3) continue;
+
         alarm(0);
         STOP = TRUE;
     }
+
+    txTrama = answer == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1;
 
     printf("\nLEFT llwrite\n");
     return 0;
@@ -165,19 +189,29 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
 int llread(int fd, unsigned char *packet)
 {
     printf("\nENTER llread\n");
+
+    int error;
     STOP = FALSE;
-    int bytes_received;
 
     while (STOP == FALSE) {
-        bytes_received = read(fd, packet, MAX_PAYLOAD_SIZE);
-
+        int bytes_received = read(fd, packet, MAX_PAYLOAD_SIZE);
         if (bytes_received > 0) {
-            printf("received %d bytes\n", bytes_received);
+            int packet_size = byte_destuffing(packet, bytes_received);
+            error = process_state_information_trama(packet, packet_size);
             STOP = TRUE;
         }
     }
 
-    byte_destuffing(packet, bytes_received);
+    // erro no campo de dados
+    if (error == -1) {
+        send_supervision_frame(rxTrama == 0 ? REJ0 : REJ1, fd);
+        return -1;
+    }
+    
+    if (error == 0) {
+        send_supervision_frame(rxTrama == 0 ? RR0 : RR1, fd);
+        rxTrama = rxTrama == 0 ? 1 : 0;
+    }
 
     printf("\nLEFT llread\n");
     return 0;

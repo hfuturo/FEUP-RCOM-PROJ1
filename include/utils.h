@@ -9,6 +9,12 @@
 #define BCC1_EMISSOR    (A^SET) // bcc1 enviado pelo emissor
 #define DISC            0x0B
 #define BCC1_DISC       (DISC^A)
+#define RR0             0x05    // informa emissor que esta pronto para receber trama 0
+#define RR1             0x85    // informa emissor que esta pronto para receber trama 1
+#define REJ0            0x01    // rejeita trama 0 enviado pelo emissor (tem erro)
+#define REJ1            0x81    // rejeita trama 1 enviado pelo emissor (tem erro)
+#define BCC1_FRAME0     (A^FRAME_NUMBER_0)
+#define BCC1_FRAME1     (A^FRAME_NUMBER_1)
 
 #define PACKET_DADOS   1
 #define PACKET_START   2

@@ -17,4 +17,6 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
 unsigned char* make_control_packet(unsigned int control_field, const char* file_name, long int file_size, long int* packet_size);
 
+unsigned char* read_control_packet(unsigned char* packet, int packet_size, long int* file_size);
+
 #endif // _APPLICATION_LAYER_H_
