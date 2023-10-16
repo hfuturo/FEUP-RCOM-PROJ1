@@ -199,8 +199,8 @@ int process_state_information_trama(unsigned char* packet, int packet_size) {
 int process_state_confirmation_rejection(unsigned char buf) {
     static STATE state = START;
     static unsigned char answer = 0;
-    //printf("current state: %d\t current buf: 0x%02X\t", state, frame);
-    int result = -1;
+    //printf("current state: %d\t current buf: 0x%02X\t", state, buf);
+    static int result = -1;
     unsigned char possible_answers[] = {RR0, RR1, REJ0, REJ1};
 
     switch (state) {
@@ -210,7 +210,7 @@ int process_state_confirmation_rejection(unsigned char buf) {
             break;
 
         case FLAG_RCV:
-            if (buf == A_RCV) state = A_RCV;
+            if (buf == A) state = A_RCV;
             else if (buf == FLAG) state = FLAG_RCV;
             else state = START;
             break;
@@ -233,13 +233,21 @@ int process_state_confirmation_rejection(unsigned char buf) {
 
         case C_RCV:
             if (buf == (A ^ answer)) state = BCC1_RCV;
-            else if (buf == FLAG) state = FLAG_RCV;
-            else state = START;
+            else {
+                answer = 0;
+                result = -1;
+                if (buf == FLAG) state = FLAG_RCV;
+                else state = START;
+            }
             break;
 
         case BCC1_RCV:
             if (buf == FLAG) state = STOP_RCV;
-            else state = START;
+            else {
+                state = START;
+                result = -1;
+                answer = 0;
+            }
             break;
 
         default:
@@ -249,8 +257,11 @@ int process_state_confirmation_rejection(unsigned char buf) {
     //printf("updated state: %d\n", state);
 
     if (state == STOP_RCV) {
+        state = START;
         answer = 0;
-        return result;
+        int aux = result;
+        result = -1;
+        return aux;
     }
 
     return -1;

@@ -8,6 +8,7 @@ typedef enum {
     C_RCV,
     BCC1_RCV,
     DATA_RCV,
+    DESTUFF_RCV,
     BCC2_RCV,
     STOP_RCV
 } STATE;

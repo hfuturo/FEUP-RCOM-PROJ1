@@ -14,6 +14,8 @@
 #include "state_machine.h"
 #include "utils.h"
 
+// TODO: implmentar number_of_tries nos ciclos do Rx
+
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
@@ -21,7 +23,8 @@ volatile int STOP = FALSE;
 int alarmEnabled = FALSE;
 int alarmCount = 0;
 int BAUDRATE;
-LinkLayerRole role;
+int RETRANSMISSIONS;
+LinkLayerRole ROLE;
 int rxTrama = 0;
 int txTrama = 0;
 
@@ -41,7 +44,8 @@ int llopen(LinkLayer connectionParameters)
 {
     printf("\nENTERED llopen\n");
     BAUDRATE = connectionParameters.baudRate;
-    role = connectionParameters.role;
+    ROLE = connectionParameters.role;
+    RETRANSMISSIONS = connectionParameters.nRetransmissions;
 
     int fd = open_serial_port(connectionParameters.serialPort);
 
@@ -56,8 +60,6 @@ int llopen(LinkLayer connectionParameters)
     switch (connectionParameters.role) {
 
         case LlRx:
-            printf("\n\nEntered Receiver\n");
-
             while (STOP == FALSE) {
                 byte = read(fd, &buf, 1);
 
@@ -65,14 +67,13 @@ int llopen(LinkLayer connectionParameters)
                     STOP = process_state_receiver(buf);
                 }
             }
-            int bytes = send_supervision_frame(UA, fd);
-            printf("sent %d bytes\n\n", bytes);
+            //int bytes = 
+            send_supervision_frame(UA, fd);
+            //printf("sent %d bytes\n\n", bytes);
 
             break;
         
         case LlTx:
-            printf("\n\nEntered emissor\n");
-
             (void)signal(SIGALRM, alarmHandler);
 
             while (STOP == FALSE && alarmCount < connectionParameters.nRetransmissions) {
@@ -80,8 +81,9 @@ int llopen(LinkLayer connectionParameters)
                     alarm(connectionParameters.timeout);
                     alarmEnabled = TRUE;
 
-                    int bytes = send_supervision_frame(SET, fd);
-                    printf("sent %d bytes\n\n", bytes);
+                    //int bytes = 
+                    send_supervision_frame(SET, fd);
+                    //printf("sent %d bytes\n\n", bytes);
                 }
 
                 while (STOP == FALSE && alarmEnabled == TRUE) {
@@ -144,22 +146,20 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
     STOP = alarmEnabled = FALSE;
     alarmCount = 0;
 
-    int bytes_written, answer;
+   // int bytes_written, 
+    int answer;
 
-    // FIXME: FIX WHILE LOOP PARA CONSEGUIR RECEBER RESPOSTAS
     while (STOP == FALSE && alarmCount < ll.nRetransmissions) {
         if (alarmEnabled == FALSE) {
             alarm(ll.timeout);
             alarmEnabled = TRUE;
 
-            bytes_written = write(fd, frame, new_packet_size+6);
-
-            printf("sent %d bytes\n", bytes_written);
+            //bytes_written = 
+            write(fd, frame, new_packet_size + 6);
+            //printf("sent %d bytes\n", bytes_written);
         }
 
-        //TODO: Verificar se foi RR ou RJ
-
-        while (TRUE) {
+        while (alarmEnabled == TRUE) {
             unsigned char buf;
             int bytes_received = read(fd, &buf, 1);
 
@@ -170,11 +170,15 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
             if (answer != -1) break;
         }
 
-        // se rejeitar necessário reenviar trama
-        if (answer == 2 || answer == 3) continue;
+        if (answer == 0 || answer == 1) {
+            STOP = TRUE;
+            alarm(0);
+        }
+    }
 
-        alarm(0);
-        STOP = TRUE;
+    if (alarmCount == ll.nRetransmissions) {
+        printf("Number of tries exceeded limit\n");
+        return -1;
     }
 
     txTrama = answer == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1;
@@ -190,27 +194,31 @@ int llread(int fd, unsigned char *packet)
 {
     printf("\nENTER llread\n");
 
-    int error;
+    int error, number_of_tries = 0;
     STOP = FALSE;
 
-    while (STOP == FALSE) {
+    while (STOP == FALSE && number_of_tries < RETRANSMISSIONS) {
         int bytes_received = read(fd, packet, MAX_PAYLOAD_SIZE);
+
         if (bytes_received > 0) {
             int packet_size = byte_destuffing(packet, bytes_received);
             error = process_state_information_trama(packet, packet_size);
-            STOP = TRUE;
-        }
-    }
 
-    // erro no campo de dados
-    if (error == -1) {
-        send_supervision_frame(rxTrama == 0 ? REJ0 : REJ1, fd);
-        return -1;
-    }
-    
-    if (error == 0) {
-        send_supervision_frame(rxTrama == 0 ? RR0 : RR1, fd);
-        rxTrama = rxTrama == 0 ? 1 : 0;
+            // erro no campo de dados
+            if (error == -1) {
+                printf("sent error\n");
+                send_supervision_frame(rxTrama == 0 ? REJ0 : REJ1, fd);
+                number_of_tries++;
+            }
+
+            if (error == 0) {
+                printf("sent no error\n");
+                send_supervision_frame(rxTrama == 0 ? RR1 : RR0, fd);
+                rxTrama = rxTrama == 0 ? 1 : 0;
+                STOP = TRUE;
+                number_of_tries++;
+            }
+        }
     }
 
     printf("\nLEFT llread\n");
@@ -224,12 +232,13 @@ int llread(int fd, unsigned char *packet)
 int llclose(int showStatistics, int fd, LinkLayer ll)
 {
     printf("\nENTERED llclose\n");
-    int byte, bytes, cycle = 0;
+    int byte, cycle = 0;
+    // int bytes;
     unsigned char buf;
     STOP = alarmEnabled = FALSE;
     alarmCount = 0;
 
-    switch (role) {
+    switch (ROLE) {
         
         case LlRx:
             while (cycle < 2) {
@@ -245,8 +254,9 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                 }
 
                 if (cycle == 0) {
-                    bytes = send_supervision_frame(DISC, fd);
-                    printf("sent %d bytes\n", bytes);
+                    //bytes = 
+                    send_supervision_frame(DISC, fd);
+                    //printf("sent %d bytes\n", bytes);
                 }
 
                 cycle++;
@@ -265,11 +275,13 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                         alarmEnabled = TRUE;
 
                         if (cycle == 0)
-                            bytes = send_supervision_frame(DISC, fd);
+                            //bytes = 
+                            send_supervision_frame(DISC, fd);
                         else
-                            bytes = send_supervision_frame(UA, fd);
+                            //bytes = 
+                            send_supervision_frame(UA, fd);
 
-                        printf("sent %d bytes\n\n", bytes);
+                        //printf("sent %d bytes\n\n", bytes);
                     }
 
                     if (cycle == 1) {
@@ -409,12 +421,12 @@ unsigned char* make_information_frame(const unsigned char* packet, int packet_si
 
     frame[3 + packet_size + 1] = BCC2;
     frame[3 + packet_size + 2] = FLAG;
-
+/*
     printf("\nINFORMATION FRAME\n");
     for (int i = 0; i < packet_size + 6; i++) {
         printf("pos: %d -> 0x%02X\n", i, frame[i]);
     }
-
+*/
     return frame;
 }
 
@@ -450,23 +462,23 @@ unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* 
             stuffed_packet[pos++] = packet[i];
         }
     }
-
+/*
     printf("\nSTUFFED PAKCET\n");
     for (int i = 0; i < *new_packet_size; i++) {
         printf("pos: %d -> 0x%02X\n", i, stuffed_packet[i]);
     }
-
+*/
     return stuffed_packet;
 }
 
 int byte_destuffing(unsigned char* packet, int packet_size) {
     int pos = 0;
-
+/*
     printf("\nSTUFFED PACKET\n");
     for (int i = 0; i < packet_size; i++) {
         printf("pos: %d -> 0x%02X\n", i, packet[i]);
     }
-
+*/
     for (int i = 0; i < packet_size; i++) {
         if (packet[i] == ESCAPE) {
             i++;
@@ -478,11 +490,11 @@ int byte_destuffing(unsigned char* packet, int packet_size) {
         }
     }
 
-
+/*
     printf("\nDESTUFFED PACKET\n");
     for (int i = 0; i < pos; i++) {
         printf("pos: %d -> 0x%02X\n", i, packet[i]);
     } 
-
+*/
     return pos;
 }

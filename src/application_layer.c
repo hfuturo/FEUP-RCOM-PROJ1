@@ -98,8 +98,29 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
                 llclose(FALSE, fd, ll);
                 return;
             }
+            if (llwrite(fd, open_control_packet, packet_size, ll) == -1) {
+                llclose(FALSE, fd, ll);
+                free(open_control_packet);
+                return;
+            }
+            free(open_control_packet);
 
-            llwrite(fd, open_control_packet, packet_size, ll);
+
+            
+
+
+            /*unsigned char* close_control_packet = make_control_packet(PACKET_END, filename, file_size, &packet_size);
+            if (!close_control_packet) {
+                printf("Error making control packet\n");
+                llclose(FALSE, fd, ll);
+                return;
+            }
+            if (llwrite(fd, close_control_packet, packet_size, ll) == -1) {
+                llclose(FALSE, fd, ll);
+                free(open_control_packet);
+                return;
+            }
+            free(close_control_packet); */
 
             error = fclose(fp);
             if (error != 0) {
@@ -163,7 +184,7 @@ unsigned char* make_control_packet(unsigned int control_field, const char* file_
     return packet;
 } 
 
-
+/*
 int buildControlPacket(unsigned char control, char *fileName, unsigned int fileSize, unsigned char *packetBuf){
 
     unsigned int n = 3;
@@ -407,3 +428,4 @@ int receiveFile(int fd){
 
     return 0;
 }
+*/
