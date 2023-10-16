@@ -43,7 +43,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
         exit(-1);
     }
 
-    int error;
+    //int error;
 
     switch (ll.role) {
 
@@ -51,7 +51,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             unsigned char frame[MAX_PAYLOAD_SIZE];
             int size = -1;
 
-            while ((size = llread(fd, frame)) < 0);
+        //   while ((size = llread(fd, frame)) < 0);
+        while (1) llread(fd, frame);
  /*           long int file_size;
             unsigned char* file = read_control_packet(frame + 4, packet_size - 6, &file_size);
 
@@ -66,69 +67,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             break;
 
         case LlTx:
-
-            FILE* fp = fopen(filename, "r");
-            if (!fp) {
-                printf("Error, invalid file\n");
-                llclose(FALSE, fd, ll);
-                return;
-            }
-
-            error = fseek(fp, 0L, SEEK_END);
-            if (error < 0) {
-                printf("Error setting fp to end of file\n");
-                llclose(FALSE, fd, ll);
-                return;
-            }
-
-            long int file_size = ftell(fp);
-            if (file_size == -1) {
-                printf("Error reading file size\n");
-                llclose(FALSE, fd, ll);
-                return;
-            }
-
-            rewind(fp);
-
-            long int packet_size;
-            unsigned char* open_control_packet = make_control_packet(PACKET_START, filename, file_size, &packet_size);
-
-            if (!open_control_packet) {
-                printf("Error making control packet\n");
-                llclose(FALSE, fd, ll);
-                return;
-            }
-            if (llwrite(fd, open_control_packet, packet_size, ll) == -1) {
-                llclose(FALSE, fd, ll);
-                free(open_control_packet);
-                return;
-            }
-            free(open_control_packet);
-
-
-            
-
-
-            /*unsigned char* close_control_packet = make_control_packet(PACKET_END, filename, file_size, &packet_size);
-            if (!close_control_packet) {
-                printf("Error making control packet\n");
-                llclose(FALSE, fd, ll);
-                return;
-            }
-            if (llwrite(fd, close_control_packet, packet_size, ll) == -1) {
-                llclose(FALSE, fd, ll);
-                free(open_control_packet);
-                return;
-            }
-            free(close_control_packet); */
-
-            error = fclose(fp);
-            if (error != 0) {
-                printf("Error closing file\n");
-                llclose(FALSE, fd, ll);
-                return;
-            }
-
+            if (sendFile(fd, filename, ll) == -1) return;
             break;
 
         default:
@@ -141,7 +80,6 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     llclose(FALSE, fd, ll);
 }
 
-//TODO: nao esquecer de dar free
 unsigned char* make_control_packet(unsigned int control_field, const char* file_name, long int file_size, long int *packet_size) {
     int file_name_size = strlen(file_name);
     int file_size_bytes = (int)ceil(log2f((float)file_size) / 8.0);  // obtem-se o numero de bits e divide-se por 8
@@ -176,10 +114,10 @@ unsigned char* make_control_packet(unsigned int control_field, const char* file_
         return NULL;
     }
 
-    printf("\nPACKET\n");
+ /*   printf("\nPACKET\n");
     for (int i = 0; i < *packet_size; i++) {                     
         printf("pos: %d -> 0x%02X\n", i, packet[i]);
-    } 
+    } */
 
     return packet;
 } 
@@ -224,99 +162,127 @@ int buildControlPacket(unsigned char control, char *fileName, unsigned int fileS
 
     return n + strlen(fileName)+1;
 }
+*/
+unsigned char* buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, int* size){
 
-int buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, unsigned char *packetBuf){
+    *size = 3 + dataLenght;
 
-    packetBuf[0] = PACKET_DADOS;
+    unsigned char* data_packet = (unsigned char*)calloc(*size, sizeof(unsigned char));
+    if (!data_packet) {
+        printf("Error creating data packet\n");
+        return NULL;
+    }
+
+    data_packet[0] = PACKET_DADOS;
 
     unsigned char l1 = (unsigned char) (dataLenght % 256);
     unsigned char l2 = (unsigned char) (dataLenght / 256);
 
-    packetBuf[1] = l2;
-    packetBuf[2] = l1;
+    data_packet[1] = l2;
+    data_packet[2] = l1;
 
-    for(int i = 0; i< dataLenght; i++){
-        packetBuf[i + 3] = dataBuf[i];
+    if (!memcpy(data_packet + 3, dataBuf, dataLenght)) {
+        printf("Error creating data packet\n");
+        return NULL;
     }
+/*
+    for (int i = 0; i < *size; i++) {
+        printf("pos: %d -> 0x%02X\n", i, data_packet[i]);
+    } */
 
-    return 3 + dataLenght;
-
+    return data_packet;
 }
 
 
-int sendFile(int fd, char *fileName){
+int sendFile(int fd, const char *filename, LinkLayer ll){
 
-    FILE* fp = openFile(fileName, "r");
+    int error;
 
-    if(fp == NULL){
+    FILE* fp = fopen(filename, "r");
+    if (!fp) {
+        printf("Error, invalid file\n");
+        llclose(FALSE, fd, ll);
         return -1;
     }
 
-    unsigned char packetBuf[PACK_MAX_SIZE];
-
-    unsigned int fileSize = findFileSize(fp);
-
-    unsigned int packetSize = (unsigned int) buildControlPacket(PACKET_START, fileName, fileSize, packetBuf);
-
-    
-    if (llwrite(fd, packetBuf, packetSize) < 0)
-    {
-        closeFile(fp);
+    error = fseek(fp, 0L, SEEK_END);
+    if (error < 0) {
+        printf("Error setting fp to end of file\n");
+        llclose(FALSE, fd, ll);
         return -1;
     }
 
-    unsigned char dataBuf[DATA_MAX_SIZE];
+    long int file_size = ftell(fp);
+    if (file_size == -1) {
+        printf("Error reading file size\n");
+        llclose(FALSE, fd, ll);
+        return -1;
+    }
+
+    rewind(fp);
+
+    long int packet_size;
+    unsigned char* open_control_packet = make_control_packet(PACKET_START, filename, file_size, &packet_size);
+
+    if (!open_control_packet) {
+        printf("Error making control packet\n");
+        llclose(FALSE, fd, ll);
+        return -1;
+    }
+    if (llwrite(fd, open_control_packet, packet_size, ll) == -1) {
+        llclose(FALSE, fd, ll);
+        free(open_control_packet);
+        return -1;
+    }
+    free(open_control_packet);
+
+    unsigned char dataBuf[MAX_PAYLOAD_SIZE - 100];
     unsigned int bytes_read = 0;
 
-    while(TRUE){
-        bytes_read = fread(dataBuf,sizeof(unsigned char),DATA_MAX_SIZE,fp);
-
-        packetSize = buildDataPacket(dataBuf,bytes_read, packetBuf);
-
-        if(bytes_read != DATA_MAX_SIZE){
-            if(feof(fp)){
-                if(llwrite(fd,packetBuf,packetSize) < 0){
-                    closeFile(fp);
-                    return -1;
-                }
-                break;
-            }
-            else{
-                closeFile(fp);
-                return -1;
-            }
-        }
-
-        if(llwrite(fd,packetBuf,packetSize) < 0){
-            closeFile(fp);
+    while ((bytes_read = fread(dataBuf, sizeof(unsigned char), MAX_PAYLOAD_SIZE-100, fp)) > 0) {
+        int size;
+        unsigned char * data_packet = buildDataPacket(dataBuf, bytes_read, &size);
+        
+        if (llwrite(fd, data_packet, size, ll) == -1) {
+            free(data_packet);
+            llclose(FALSE, fd, ll);
             return -1;
         }
-    }
 
-    packetSize = buildControlPacket(PACKET_END, fileName, fileSize,  packetBuf);
+        free(data_packet);
+    } 
 
-    if (llwrite(fd, packetBuf, packetSize) < 0)
-    {
-        closeFile(fp);
+    unsigned char* close_control_packet = make_control_packet(PACKET_END, filename, file_size, &packet_size);
+    if (!close_control_packet) {
+        printf("Error making control packet\n");
+        llclose(FALSE, fd, ll);
         return -1;
     }
-
-    if (closeFile(fp) != 0){
+    if (llwrite(fd, close_control_packet, packet_size, ll) == -1) {
+        llclose(FALSE, fd, ll);
+        free(open_control_packet);
         return -1;
     }
+    free(close_control_packet);
 
+    error = fclose(fp);
+    if (error != 0) {
+        printf("Error closing file\n");
+        llclose(FALSE, fd, ll);
+        return -1;
+    }
 
     return 0;
 }
 
-
+/*
 int rebuildControlPacket(char *fileName, unsigned int *fileSize, unsigned char *packetBuf){
 
-    if((packetBuf[0] != PACKET_START) && (packetBuf[0] != PACKET_END)){
+    if((packetBuf[0] != PACKET_START) || (packetBuf[0] != PACKET_END)){
         return -1;
     }
 
-    if(packetBuf[1] != TYPE_SIZE){
+    if(packetBuf[1] != PACKET_FILE_SIZE){
         return -1;
     }
 
@@ -343,7 +309,6 @@ int rebuildControlPacket(char *fileName, unsigned int *fileSize, unsigned char *
 
     return 0;
 }
-
 
 int rebuildDataPacket(unsigned char *dataBuf, unsigned int *dataLenght, unsigned char *packetBuf){
 

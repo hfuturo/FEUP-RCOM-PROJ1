@@ -133,8 +133,8 @@ int process_state_information_trama(unsigned char* packet, int packet_size) {
     for (int i = 0; i < packet_size; i++) {
         unsigned char buf = packet[i];
 
-        printf("\npos: %d -> 0x%02X\n", i, packet[i]);
-        printf("Current state: %d\t", state);
+        //printf("\npos: %d -> 0x%02X\n", i, packet[i]);
+        //printf("Current state: %d\t", state);
         switch (state) {
             
             case START:
@@ -161,7 +161,7 @@ int process_state_information_trama(unsigned char* packet, int packet_size) {
 
             case DATA_RCV:
                 if (counter == packet_size - 6) {
-                    printf("\nbuf: 0x%02X | BCC2: 0x%02X\n", buf, BCC2);
+                    //printf("\nbuf: 0x%02X | BCC2: 0x%02X\n", buf, BCC2);
                     if (BCC2 == buf) state = BCC2_RCV;
                     else {
                         // data wrong
@@ -172,11 +172,11 @@ int process_state_information_trama(unsigned char* packet, int packet_size) {
                     }
                     break;
                 }
-                printf("counter: %d\t", counter);
+                //printf("counter: %d\t", counter);
                 if (counter == 0) BCC2 = buf;
                 else BCC2 ^= buf;
 
-                printf("BCC2: 0x%02X\n", BCC2);
+                //printf("BCC2: 0x%02X\n", BCC2);
 
                 counter++;
                 break;
@@ -190,7 +190,12 @@ int process_state_information_trama(unsigned char* packet, int packet_size) {
             default:
                 break;
         }
-        printf("updated state: %d\n", state);
+        //printf("updated state: %d\n", state);
+    }
+
+    if (state == STOP_RCV) {
+        state = START;
+        counter = 0;
     }
 
     return 0;

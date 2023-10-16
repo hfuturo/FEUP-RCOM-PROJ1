@@ -113,7 +113,6 @@ int llopen(LinkLayer connectionParameters)
     }
 
     printf("\nLEFT llopen\n");
-
     return fd;
 }
 
@@ -123,6 +122,7 @@ int llopen(LinkLayer connectionParameters)
 int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
 {
     printf("\nENTER llwrite\n");
+    printf("tx: %d\n", txTrama);
     if (!buf) {
         printf("Invalid packet\n");
         return -1;
@@ -162,7 +162,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
         while (alarmEnabled == TRUE) {
             unsigned char buf;
             int bytes_received = read(fd, &buf, 1);
-
+            //printf("rx: %d tx: %d\n", rxTrama, txTrama);
             if (bytes_received > 0) {
                 answer = process_state_confirmation_rejection(buf);
             }
@@ -181,7 +181,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
         return -1;
     }
 
-    txTrama = answer == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1;
+    txTrama = answer == 0 ? 0 : 1;
 
     printf("\nLEFT llwrite\n");
     return 0;
@@ -196,6 +196,7 @@ int llread(int fd, unsigned char *packet)
 
     int error, number_of_tries = 0;
     STOP = FALSE;
+    printf("rx: %d\n", rxTrama);
 
     while (STOP == FALSE && number_of_tries < RETRANSMISSIONS) {
         int bytes_received = read(fd, packet, MAX_PAYLOAD_SIZE);

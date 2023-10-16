@@ -4,6 +4,8 @@
 #ifndef _APPLICATION_LAYER_H_
 #define _APPLICATION_LAYER_H_
 
+#include <link_layer.h>
+
 // Application layer main function.
 // Arguments:
 //   serialPort: Serial port name (e.g., /dev/ttyS0).
@@ -21,9 +23,9 @@ unsigned char* read_control_packet(unsigned char* packet, int packet_size, long 
 
 int buildControlPacket(unsigned char control, char *fileName, unsigned int fileSize, unsigned char *packetBuf);
 
-int buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, unsigned char *packetBuf);
+unsigned char* buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, int* size);
 
-int sendFile(int fd, char *fileName);
+int sendFile(int fd, const char *filename, LinkLayer ll);
 
 int rebuildControlPacket(char *fileName, unsigned int *fileSize, unsigned char *packetBuf);
 
