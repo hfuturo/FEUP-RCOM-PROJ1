@@ -137,8 +137,9 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
     //unsigned char teste[] = {0x02, 0x00, 0x02, 0x7E, 0x05, 0x7D, 0x69};
     //unsigned char BCC2 = calculateBCC2(teste, 7);
     //unsigned char* stuffed_packet = byte_stuffing(teste, 7, &new_packet_size);
+    //unsigned char* frame = make_information_frame(stuffed_packet, new_packet_size, txTrama == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1, BCC2);
 
-    if (!frame) return -1;
+    //if (!frame) return -1;
     
     free(stuffed_packet);
 
@@ -198,12 +199,14 @@ int llread(int fd, unsigned char *packet)
     STOP = FALSE;
     printf("rx: %d\n", rxTrama);
 
+    unsigned char buf;
+    int packet_size = 0;
+
     while (STOP == FALSE && number_of_tries < RETRANSMISSIONS) {
-        int bytes_received = read(fd, packet, MAX_PAYLOAD_SIZE);
+        int bytes_received = read(fd, &buf, 1);
 
         if (bytes_received > 0) {
-            int packet_size = byte_destuffing(packet, bytes_received);
-            error = process_state_information_trama(packet, packet_size);
+            error = process_state_information_trama(packet, buf, &packet_size);
 
             // erro no campo de dados
             if (error == -1) {
@@ -212,7 +215,7 @@ int llread(int fd, unsigned char *packet)
                 number_of_tries++;
             }
 
-            if (error == 0) {
+            if (error == 1) {
                 printf("sent no error\n");
                 send_supervision_frame(rxTrama == 0 ? RR1 : RR0, fd);
                 rxTrama = rxTrama == 0 ? 1 : 0;
@@ -222,8 +225,13 @@ int llread(int fd, unsigned char *packet)
         }
     }
 
+    //printf("\nPACKET\n");
+    //for (int i = 0; i < packet_size; i++) {
+    //    printf("pos: %d -> 0x%02X\n", i, packet[i]);
+   // }
+
     printf("\nLEFT llread\n");
-    return 0;
+    return packet_size;
 }
 
 ////////////////////////////////////////////////

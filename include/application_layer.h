@@ -27,9 +27,9 @@ unsigned char* buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, 
 
 int sendFile(int fd, const char *filename, LinkLayer ll);
 
-int rebuildControlPacket(char *fileName, unsigned int *fileSize, unsigned char *packetBuf);
+char* rebuildControlPacket(long int *fileSize, unsigned char *packetBuf);
 
-int rebuildDataPacket(unsigned char *dataBuf, unsigned int *dataLenght, unsigned char *packetBuf);
+unsigned char* rebuildDataPacket(long int *dataLenght, unsigned char *packetBuf);
 
 int receiveFile(int fd);
 
