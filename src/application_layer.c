@@ -70,7 +70,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             }
 
             free(file_name);
-            printf("ola\n");
+
             unsigned int count = 0;
             long int dataLenght;
 
