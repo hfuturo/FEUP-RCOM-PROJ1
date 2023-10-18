@@ -48,7 +48,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     switch (ll.role) {
 
-        case LlRx:
+        case LlRx: {
             unsigned char frame[MAX_PAYLOAD_SIZE];
             int size = -1;
 
@@ -62,7 +62,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             printf("file name: %s\n", file_name);
 
             //FILE* fp = fopen(file_name, "a+");
-            FILE* fp = fopen("received.gif", "a+");
+            FILE* fp = fopen(filename, "a+");
 
             if (!fp) {
                 printf("Error creating file\n");
@@ -106,6 +106,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             }
 
             break;
+        }
 
         case LlTx:
             if (sendFile(fd, filename, ll) == -1) return;

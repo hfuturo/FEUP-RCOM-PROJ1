@@ -212,6 +212,7 @@ int llread(int fd, unsigned char *packet)
             if (error == -1) {
                 printf("sent error\n");
                 send_supervision_frame(rxTrama == 0 ? REJ0 : REJ1, fd);
+                packet_size = 0;
                 number_of_tries++;
             }
 
@@ -220,7 +221,6 @@ int llread(int fd, unsigned char *packet)
                 send_supervision_frame(rxTrama == 0 ? RR1 : RR0, fd);
                 rxTrama = rxTrama == 0 ? 1 : 0;
                 STOP = TRUE;
-                number_of_tries++;
             }
         }
     }
@@ -478,32 +478,4 @@ unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* 
     }
 */
     return stuffed_packet;
-}
-
-int byte_destuffing(unsigned char* packet, int packet_size) {
-    int pos = 0;
-/*
-    printf("\nSTUFFED PACKET\n");
-    for (int i = 0; i < packet_size; i++) {
-        printf("pos: %d -> 0x%02X\n", i, packet[i]);
-    }
-*/
-    for (int i = 0; i < packet_size; i++) {
-        if (packet[i] == ESCAPE) {
-            i++;
-            if (packet[i] == FLAG_STUFF) packet[pos++] = FLAG;
-            else packet[pos++] = ESCAPE;
-        }
-        else {
-            packet[pos++] = packet[i];
-        }
-    }
-
-/*
-    printf("\nDESTUFFED PACKET\n");
-    for (int i = 0; i < pos; i++) {
-        printf("pos: %d -> 0x%02X\n", i, packet[i]);
-    } 
-*/
-    return pos;
 }
