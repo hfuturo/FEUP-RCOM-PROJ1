@@ -75,7 +75,11 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             long int dataLenght;
 
             while (TRUE) {
-                llread(fd, frame);
+                if (llread(fd, frame) == -2) {
+                    llclose(FALSE, fd, ll);
+                    return;
+                }
+                
                 if(frame[0] == PACKET_END){
                     long int aux;
                     char* trash = rebuildControlPacket(&aux, frame);

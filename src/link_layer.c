@@ -37,6 +37,7 @@ void alarmHandler(int signal) {
     printf("Alarm #%d\n", alarmCount);
 }
 
+
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
@@ -172,10 +173,14 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
         }
 
         if (answer == 0 || answer == 1) {
-            STOP = TRUE;
-            alarm(0);
+            if(answer != txTrama) {
+                STOP = TRUE;
+                alarm(0);
+            }
         }
     }
+
+    free(frame);
 
     if (alarmCount == ll.nRetransmissions) {
         printf("Number of tries exceeded limit\n");
@@ -193,6 +198,9 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
 ////////////////////////////////////////////////
 int llread(int fd, unsigned char *packet)
 {
+    static int time = 0;    // FIXME: remover depois
+    int counter = 0;        // FIXME: remover depois
+
     printf("\nENTER llread\n");
 
     int error, number_of_tries = 0;
@@ -206,7 +214,19 @@ int llread(int fd, unsigned char *packet)
         int bytes_received = read(fd, &buf, 1);
 
         if (bytes_received > 0) {
+            
+        /*    if (time > 3 && counter == 300) {
+                buf ^= 0xFF;
+                time++;
+                counter++;
+            }  */
+            //if ((rand() % 100000) < 1 * 100000 / 100) buf ^= 0xFF;
             error = process_state_information_trama(packet, buf, &packet_size);
+            
+            if(error == -2){
+                printf("emissor run out of tries\n");
+                return -2;            
+            }
 
             // erro no campo de dados
             if (error == -1) {
@@ -222,6 +242,8 @@ int llread(int fd, unsigned char *packet)
                 rxTrama = rxTrama == 0 ? 1 : 0;
                 STOP = TRUE;
             }
+
+            counter++;  // FIXME: remover depois
         }
     }
 
@@ -230,6 +252,7 @@ int llread(int fd, unsigned char *packet)
     //    printf("pos: %d -> 0x%02X\n", i, packet[i]);
    // }
 
+    time++;
     printf("\nLEFT llread\n");
     return packet_size;
 }
@@ -409,7 +432,6 @@ unsigned char calculateBCC2(const unsigned char* packet, int packet_size) {
     return BCC2;
 }
 
-//TODO: nao esquecer de dar free
 unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number, unsigned char BCC2) {
     unsigned char* frame = (unsigned char*)calloc(packet_size + 6, sizeof(unsigned char));
 
@@ -439,7 +461,6 @@ unsigned char* make_information_frame(const unsigned char* packet, int packet_si
     return frame;
 }
 
-//TODO: nao esquecer de dar free
 unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* new_packet_size) {
     int counter = 0;
 

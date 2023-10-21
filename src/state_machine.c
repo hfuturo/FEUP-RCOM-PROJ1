@@ -147,7 +147,10 @@ int process_state_information_trama(unsigned char* packet, unsigned char buf, in
             if (buf == FRAME_NUMBER_0) state = FRAME0_RCV;
             else if (buf == FRAME_NUMBER_1) state = FRAME1_RCV;
             else if (buf == FLAG) state = FLAG_RCV;
-            else state = START;
+            else {
+                state = START;
+                if(buf == DISC) return -2;
+            }
             break;
 
         case FRAME0_RCV:
