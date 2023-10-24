@@ -54,7 +54,7 @@ unsigned char calculateBCC2(const unsigned char* packet, int packet_size);
 
 unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number, unsigned char BCC2);
 
-unsigned char* byte_stuffing(const unsigned char* packet, int packetSize, int* new_packet_size);
+unsigned char* byte_stuffing(const unsigned char* packet, int packetSize, int* new_packet_size, unsigned char BCC2);
 
 int byte_destuffing(unsigned char* packet, int packet_size);
 

@@ -9,12 +9,11 @@
 #include <termios.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 #include "link_layer.h"
 #include "state_machine.h"
 #include "utils.h"
-
-// TODO: implmentar number_of_tries nos ciclos do Rx
 
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
@@ -68,10 +67,8 @@ int llopen(LinkLayer connectionParameters)
                     STOP = process_state_receiver(buf);
                 }
             }
-            //int bytes = 
-            send_supervision_frame(UA, fd);
-            //printf("sent %d bytes\n\n", bytes);
 
+            send_supervision_frame(UA, fd);
             break;
         
         case LlTx:
@@ -81,10 +78,7 @@ int llopen(LinkLayer connectionParameters)
                 if (alarmEnabled == FALSE) {
                     alarm(connectionParameters.timeout);
                     alarmEnabled = TRUE;
-
-                    //int bytes = 
                     send_supervision_frame(SET, fd);
-                    //printf("sent %d bytes\n\n", bytes);
                 }
 
                 while (STOP == FALSE && alarmEnabled == TRUE) {
@@ -132,15 +126,8 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
     int new_packet_size;
 
     unsigned char BCC2 = calculateBCC2(buf, bufSize);
-    unsigned char* stuffed_packet = byte_stuffing(buf, bufSize, &new_packet_size);
+    unsigned char* stuffed_packet = byte_stuffing(buf, bufSize, &new_packet_size, BCC2);
     unsigned char* frame = make_information_frame(stuffed_packet, new_packet_size, txTrama == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1, BCC2);
-
-    //unsigned char teste[] = {0x02, 0x00, 0x02, 0x7E, 0x05, 0x7D, 0x69};
-    //unsigned char BCC2 = calculateBCC2(teste, 7);
-    //unsigned char* stuffed_packet = byte_stuffing(teste, 7, &new_packet_size);
-    //unsigned char* frame = make_information_frame(stuffed_packet, new_packet_size, txTrama == 0 ? FRAME_NUMBER_0 : FRAME_NUMBER_1, BCC2);
-
-    //if (!frame) return -1;
     
     free(stuffed_packet);
 
@@ -148,37 +135,37 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
     STOP = alarmEnabled = FALSE;
     alarmCount = 0;
 
-   // int bytes_written, 
     int answer;
 
     while (STOP == FALSE && alarmCount < ll.nRetransmissions) {
         if (alarmEnabled == FALSE) {
             alarm(ll.timeout);
             alarmEnabled = TRUE;
-
-            //bytes_written = 
-            write(fd, frame, new_packet_size + 6);
-            //printf("sent %d bytes\n", bytes_written);
+            write(fd, frame, new_packet_size + 5);
         }
+        
 
         while (alarmEnabled == TRUE) {
             unsigned char buf;
             int bytes_received = read(fd, &buf, 1);
-            //printf("rx: %d tx: %d\n", rxTrama, txTrama);
             if (bytes_received > 0) {
                 answer = process_state_confirmation_rejection(buf);
             }
 
-            if (answer != -1) break;
-        }
-
-        if (answer == 0 || answer == 1) {
-            if(answer != txTrama) {
-                STOP = TRUE;
-                alarm(0);
+            if (answer == 0 || answer == 1) {
+                if (answer != txTrama) {
+                    STOP = TRUE;
+                    alarm(0);
+                    break;
+                }
             }
+            else if (answer == 2 || answer == 3) {  // se rejeitar envia novamente
+                write(fd, frame, new_packet_size + 5);
+            //    alarmCount = 0;
+                answer = -1;    // necessário meter answer a valor diferente de 0,1,2,3 
+            }                   // para evitar enviar frame muitas vezes seguidas e crashar
         }
-    }
+    } 
 
     free(frame);
 
@@ -214,15 +201,17 @@ int llread(int fd, unsigned char *packet)
         int bytes_received = read(fd, &buf, 1);
 
         if (bytes_received > 0) {
-            
-        /*    if (time > 3 && counter == 300) {
-                buf ^= 0xFF;
-                time++;
-                counter++;
-            }  */
-            //if ((rand() % 100000) < 1 * 100000 / 100) buf ^= 0xFF;
+            /*
+            if (time > 2) {
+                int number = rand() % 100 + 1;
+                if (number <= 50 && counter == 30) {
+                    buf ^= 0xFF;
+                }
+            }  
+            */
             error = process_state_information_trama(packet, buf, &packet_size);
             
+            // emissor run out of tries
             if(error == -2){
                 printf("emissor run out of tries\n");
                 return -2;            
@@ -247,11 +236,6 @@ int llread(int fd, unsigned char *packet)
         }
     }
 
-    //printf("\nPACKET\n");
-    //for (int i = 0; i < packet_size; i++) {
-    //    printf("pos: %d -> 0x%02X\n", i, packet[i]);
-   // }
-
     time++;
     printf("\nLEFT llread\n");
     return packet_size;
@@ -260,12 +244,12 @@ int llread(int fd, unsigned char *packet)
 ////////////////////////////////////////////////
 // LLCLOSE
 ////////////////////////////////////////////////
+
 //TODO: showStatistics
 int llclose(int showStatistics, int fd, LinkLayer ll)
 {
     printf("\nENTERED llclose\n");
     int byte, cycle = 0;
-    // int bytes;
     unsigned char buf;
     STOP = alarmEnabled = FALSE;
     alarmCount = 0;
@@ -273,27 +257,42 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
     switch (ROLE) {
         
         case LlRx:
-            while (cycle < 2) {
-                while (STOP == FALSE) {
+
+            // recebe DISC
+            while (STOP == FALSE) {
+                byte = read(fd, &buf, 1);
+
+                if (byte > 0) {
+                    STOP = process_state_disc(buf);
+                }
+            }
+
+            (void)signal(SIGALRM, alarmHandler);
+            STOP = FALSE;
+
+            // envia DISC e espera por UA
+            while (STOP == FALSE && alarmCount < ll.nRetransmissions) {
+
+                if (alarmEnabled == FALSE) {
+                    alarm(ll.timeout);
+                    alarmEnabled = TRUE;
+
+                    send_supervision_frame(DISC, fd);
+                }
+
+                while (STOP == FALSE && alarmEnabled == TRUE) {
                     byte = read(fd, &buf, 1);
 
                     if (byte > 0) {
-                        if (cycle == 0)
-                            STOP = process_state_disc(buf);
-                        else
-                            STOP = process_state_emissor(buf);  // este caso e uma excecao, uma vez que o emissor envia UA em vez de SET
+                        STOP = process_state_emissor(buf);
+                    }
+
+                    if (STOP) {
+                        alarm(0);
                     }
                 }
-
-                if (cycle == 0) {
-                    //bytes = 
-                    send_supervision_frame(DISC, fd);
-                    //printf("sent %d bytes\n", bytes);
-                }
-
-                cycle++;
-                STOP = FALSE;
             }
+
             break;
 
         case LlTx:
@@ -307,13 +306,9 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                         alarmEnabled = TRUE;
 
                         if (cycle == 0)
-                            //bytes = 
                             send_supervision_frame(DISC, fd);
                         else
-                            //bytes = 
                             send_supervision_frame(UA, fd);
-
-                        //printf("sent %d bytes\n\n", bytes);
                     }
 
                     if (cycle == 1) {
@@ -327,8 +322,8 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                         if (byte > 0) {
                             if (cycle == 0) 
                                 STOP = process_state_disc(buf);
-                            else 
-                                STOP = process_state_emissor(buf);
+                            else                                           
+                                STOP = process_state_emissor(buf);          
                         }
 
                         if (STOP == TRUE) {
@@ -433,7 +428,7 @@ unsigned char calculateBCC2(const unsigned char* packet, int packet_size) {
 }
 
 unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number, unsigned char BCC2) {
-    unsigned char* frame = (unsigned char*)calloc(packet_size + 6, sizeof(unsigned char));
+    unsigned char* frame = (unsigned char*)calloc(packet_size + 5, sizeof(unsigned char));
 
     if (!frame) {
         printf("Error alocating memory in send_information_frame\n");
@@ -450,22 +445,25 @@ unsigned char* make_information_frame(const unsigned char* packet, int packet_si
         return NULL;
     }
 
-    frame[3 + packet_size + 1] = BCC2;
-    frame[3 + packet_size + 2] = FLAG;
-/*
-    printf("\nINFORMATION FRAME\n");
-    for (int i = 0; i < packet_size + 6; i++) {
-        printf("pos: %d -> 0x%02X\n", i, frame[i]);
-    }
-*/
+    frame[3 + packet_size + 1] = FLAG;
+
     return frame;
 }
 
-unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* new_packet_size) {
+unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* new_packet_size, unsigned char BCC2) {
     int counter = 0;
 
     for (int i = 0; i < packet_size; i++) {
         if (packet[i] == FLAG || packet[i] == ESCAPE) counter++;
+    }
+
+    counter++;  // BCC2
+
+    int stuff_bcc2 = FALSE;
+
+    if (BCC2 == FLAG || BCC2 == ESCAPE) {
+        counter++;  // stuff BCC2
+        stuff_bcc2 = TRUE;
     }
 
     *new_packet_size = packet_size + counter;
@@ -492,11 +490,15 @@ unsigned char* byte_stuffing(const unsigned char* packet, int packet_size, int* 
             stuffed_packet[pos++] = packet[i];
         }
     }
-/*
-    printf("\nSTUFFED PAKCET\n");
-    for (int i = 0; i < *new_packet_size; i++) {
-        printf("pos: %d -> 0x%02X\n", i, stuffed_packet[i]);
+
+    if (stuff_bcc2) {
+        stuffed_packet[pos++] = ESCAPE;
+        if (BCC2 == FLAG) stuffed_packet[pos++] = FLAG_STUFF;
+        else stuffed_packet[pos++] = ESCAPE_STUFF;  
     }
-*/
+    else {
+        stuffed_packet[pos++] = BCC2;
+    }
+    
     return stuffed_packet;
 }

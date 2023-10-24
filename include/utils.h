@@ -35,4 +35,6 @@
 #define FLAG_STUFF      0x5E
 #define ESCAPE_STUFF    0x5D
 
+#define SHOW_STATISTICS     1
+
 #endif
