@@ -48,12 +48,13 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     switch (ll.role) {
 
-        case LlRx:
+        case LlRx: {
             if (receiveFile(fd, filename, ll) == -1) {
                 printf("Error receiveFile\n");
                 return;
             }
             break;
+        }
 
         case LlTx:
             clock_t begin = clock();
