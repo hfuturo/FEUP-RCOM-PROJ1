@@ -56,19 +56,13 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
             break;
         }
 
-        case LlTx:
-            clock_t begin = clock();
-            
+        case LlTx: {
             if (sendFile(fd, filename, ll) == -1) {
                 printf("Error sendFile\n");
                 return;
             }
-            clock_t end = clock();
-
-            double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-
-            printf("TIME_SPENT: %.2f\n", time_spent);
             break;
+        }
 
         default:
             printf("Invalid role\n");

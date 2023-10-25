@@ -160,8 +160,8 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
                 }
             }
             else if (answer == 2 || answer == 3) {  // se rejeitar envia novamente
+                alarm(ll.timeout);
                 write(fd, frame, new_packet_size + 5);
-            //    alarmCount = 0;
                 answer = -1;    // necessário meter answer a valor diferente de 0,1,2,3 
             }                   // para evitar enviar frame muitas vezes seguidas e crashar
         }
@@ -185,9 +185,6 @@ int llwrite(int fd, const unsigned char *buf, int bufSize, LinkLayer ll)
 ////////////////////////////////////////////////
 int llread(int fd, unsigned char *packet)
 {
-    static int time = 0;    // FIXME: remover depois
-    int counter = 0;        // FIXME: remover depois
-
     printf("\nENTER llread\n");
 
     int error, number_of_tries = 0;
@@ -196,20 +193,13 @@ int llread(int fd, unsigned char *packet)
 
     unsigned char buf;
     int packet_size = 0;
+    int tx;
 
     while (STOP == FALSE && number_of_tries < RETRANSMISSIONS) {
         int bytes_received = read(fd, &buf, 1);
 
         if (bytes_received > 0) {
-            /*
-            if (time > 2) {
-                int number = rand() % 100 + 1;
-                if (number <= 50 && counter == 30) {
-                    buf ^= 0xFF;
-                }
-            }  
-            */
-            error = process_state_information_trama(packet, buf, &packet_size);
+            error = process_state_information_trama(packet, buf, &packet_size, &tx);
             
             // emissor run out of tries
             if(error == -2){
@@ -226,17 +216,20 @@ int llread(int fd, unsigned char *packet)
             }
 
             if (error == 1) {
+                if (tx != rxTrama) {
+                    send_supervision_frame(rxTrama == 0 ? RR0 : RR1, fd);
+                    packet_size = 0;
+                    printf("same frame\n");
+                    continue;
+                }
                 printf("sent no error\n");
                 send_supervision_frame(rxTrama == 0 ? RR1 : RR0, fd);
                 rxTrama = rxTrama == 0 ? 1 : 0;
                 STOP = TRUE;
             }
-
-            counter++;  // FIXME: remover depois
         }
     }
 
-    time++;
     printf("\nLEFT llread\n");
     return packet_size;
 }

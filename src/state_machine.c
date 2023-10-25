@@ -135,7 +135,7 @@ int process_state_disc(unsigned char buf) {
     return 0;
 }
 
-int process_state_information_trama(unsigned char* packet, unsigned char buf, int* pos) {
+int process_state_information_trama(unsigned char* packet, unsigned char buf, int* pos, int* tx) {
     static STATE state = START;
 
     switch (state) {
@@ -150,8 +150,14 @@ int process_state_information_trama(unsigned char* packet, unsigned char buf, in
             break;
 
         case A_RCV:
-            if (buf == FRAME_NUMBER_0) state = FRAME0_RCV;
-            else if (buf == FRAME_NUMBER_1) state = FRAME1_RCV;
+            if (buf == FRAME_NUMBER_0) {
+                state = FRAME0_RCV;
+                *tx = 0;
+            }
+            else if (buf == FRAME_NUMBER_1) {
+                state = FRAME1_RCV;
+                *tx = 1;
+            }
             else if (buf == FLAG) state = FLAG_RCV;
             else {
                 state = START;

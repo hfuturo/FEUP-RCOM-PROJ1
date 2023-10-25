@@ -21,7 +21,7 @@ int process_state_emissor(unsigned char frame);
 
 int process_state_disc(unsigned char frame);
 
-int process_state_information_trama(unsigned char* packet, unsigned char buf, int* pos);
+int process_state_information_trama(unsigned char* packet, unsigned char buf, int* pos, int* tx);
 
 int process_state_confirmation_rejection(unsigned char buf);
 
