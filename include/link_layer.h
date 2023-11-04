@@ -4,12 +4,14 @@
 #ifndef _LINK_LAYER_H_
 #define _LINK_LAYER_H_
 
+// Identifica se o computador é o transmissor ou o recetor
 typedef enum
 {
     LlTx,
     LlRx,
 } LinkLayerRole;
 
+// Informação relacionada com o protocolo de ligação lógica .
 typedef struct
 {
     char serialPort[50];
@@ -44,18 +46,25 @@ int llread(int fd, unsigned char *packet);
 // Return "1" on success or "-1" on error.
 int llclose(int showStatistics, int fd, LinkLayer ll);
 
+// Estabelece a ligação entre o recetor e o transmissor através do serial port
 int open_serial_port(const char* serialPort);
 
+// Termina a ligação
 int close_serial_port(int fd);
 
+// Envia um pacote de supervisão
 int send_supervision_frame(unsigned char C, int fd);
 
+// Calcula o BCC2
 unsigned char calculateBCC2(const unsigned char* packet, int packet_size);
 
+// Constrói um trama de informação
 unsigned char* make_information_frame(const unsigned char* packet, int packet_size, int frame_number, unsigned char BCC2);
 
+// Realiza byte stuffing
 unsigned char* byte_stuffing(const unsigned char* packet, int packetSize, int* new_packet_size, unsigned char BCC2);
 
+// Realiza byte destuffing
 int byte_destuffing(unsigned char* packet, int packet_size);
 
 #endif // _LINK_LAYER_H_

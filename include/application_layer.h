@@ -14,23 +14,25 @@
 //   nTries: Maximum number of frame retries.
 //   timeout: Frame timeout.
 //   filename: Name of the file to send / receive.
-void applicationLayer(const char *serialPort, const char *role, int baudRate,   // YES
+void applicationLayer(const char *serialPort, const char *role, int baudRate,  
                       int nTries, int timeout, const char *filename);
 
-unsigned char* make_control_packet(unsigned int control_field, const char* file_name, long int file_size, long int* packet_size);   // YES
+// Constrói um pacote de controlo
+unsigned char* make_control_packet(unsigned int control_field, const char* file_name, long int file_size, long int* packet_size);  
 
-//unsigned char* read_control_packet(unsigned char* packet, int packet_size, long int* file_size);
+// Constrói um pacote de informação
+unsigned char* buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, int* size); 
 
-//int buildControlPacket(unsigned char control, char *fileName, unsigned int fileSize, unsigned char *packetBuf);
+// Envia um ficheiro
+int sendFile(int fd, const char *filename, LinkLayer ll);   
 
-unsigned char* buildDataPacket(unsigned char *dataBuf, unsigned int dataLenght, int* size); // YES
+// Reconstrói um pacote de controlo
+char* rebuildControlPacket(long int *fileSize, unsigned char *packetBuf);   
 
-int sendFile(int fd, const char *filename, LinkLayer ll);   // YES
+// Reconstrói um pacote de informação
+unsigned char* rebuildDataPacket(long int *dataLenght, unsigned char *packetBuf);   
 
-char* rebuildControlPacket(long int *fileSize, unsigned char *packetBuf);   // YES
-
-unsigned char* rebuildDataPacket(long int *dataLenght, unsigned char *packetBuf);   // YES
-
-int receiveFile(int fd, const char* filename, LinkLayer ll);    // YES
+// Recebe um ficheiro
+int receiveFile(int fd, const char* filename, LinkLayer ll);    
 
 #endif // _APPLICATION_LAYER_H_
