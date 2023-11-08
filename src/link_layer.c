@@ -191,7 +191,7 @@ int llread(int fd, unsigned char *packet)
 {
     printf("\nENTER llread\n");
 
-    static int time = 0;
+    //static int time = 0;
     int counter = 0;
 
     int error, number_of_tries = 0;
@@ -201,24 +201,41 @@ int llread(int fd, unsigned char *packet)
     unsigned char buf;
     int packet_size = 0;
     int tx;
+    //int p_erro_BCC1 = 5;
+    //int p_erro_BCC1 = 10;
+    //int p_erro_BCC1 = 15;
+    //int p_erro_BCC1 = 20;
+    //int p_erro_BCC2 = 5;
+    //int p_erro_BCC2 = 10;
+    //int p_erro_BCC2 = 15;
+    //int p_erro_BCC2 = 20;
 
     while (STOP == FALSE && number_of_tries < RETRANSMISSIONS) {
         int bytes_received = read(fd, &buf, 1);
 
         if (bytes_received > 0) {
-            error = process_state_information_trama(packet, buf, &packet_size, &tx);
-            if (time > 2) {
-                int number = rand() % 100 + 1;
-                if (number <= 50 && counter == 30) {
+            /*
+            if ( counter == 3) {
+                printf("Ok\n");
+                int number = (rand() % 100) + 1;
+                if (number <= p_erro_BCC1) {
                     buf ^= 0xFF;
                 }
-            }  
+            }
+            if (counter == 5) {
+                int number = rand() % 100 + 1;
+                if (number <= p_erro_BCC2) {
+                    buf ^= 0xFF;
+                }
+            }
+            */   
+            error = process_state_information_trama(packet, buf, &packet_size, &tx);
+ 
             // emissor run out of tries
             if(error == -2){
                 printf("emissor run out of tries\n");
                 return -2;            
             }
-
             // erro no campo de dados
             if (error == -1) {
                 printf("sent error\n");
@@ -242,7 +259,6 @@ int llread(int fd, unsigned char *packet)
             counter++;
         }
     }
-    time++;
     printf("\nLEFT llread\n");
     return packet_size;
 }
