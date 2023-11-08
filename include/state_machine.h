@@ -16,7 +16,11 @@ typedef enum {
     STOP_RCV
 } STATE;
 
-// Máquian de estados utilizado pelo receiver -> recebe SET
+// teste
+// Máquina de estado utilizada para mensagems de SET, UA, e DISC 
+int process_message_state(unsigned char frame, unsigned char a, unsigned char c);
+
+// Máquina de estados utilizado pelo receiver -> recebe SET
 int process_state_receiver(unsigned char frame);
 
 // Máquina de estados utilizada pelo emissor -> recebe UA

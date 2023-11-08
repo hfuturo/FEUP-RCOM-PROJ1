@@ -64,11 +64,13 @@ int llopen(LinkLayer connectionParameters)
                 byte = read(fd, &buf, 1);
 
                 if (byte > 0) {
-                    STOP = process_state_receiver(buf);
+                    //STOP = process_state_receiver(buf);
+                    STOP = process_message_state(buf, A, SET);
                 }
             }
 
-            send_supervision_frame(UA, fd);
+            //send_supervision_frame(UA, fd);
+            send_supervision_frame_2(A, UA, fd);
             break;
         
         case LlTx:
@@ -78,14 +80,16 @@ int llopen(LinkLayer connectionParameters)
                 if (alarmEnabled == FALSE) {
                     alarm(connectionParameters.timeout);
                     alarmEnabled = TRUE;
-                    send_supervision_frame(SET, fd);
+                    //send_supervision_frame(SET, fd);
+                    send_supervision_frame_2(A, SET, fd);
                 }
 
                 while (STOP == FALSE && alarmEnabled == TRUE) {
                     byte = read(fd, &buf, 1);
 
                     if (byte > 0) {
-                        STOP = process_state_emissor(buf);
+                        //STOP = process_state_emissor(buf);
+                        STOP = process_message_state(buf, A, UA);
                     }
 
                     if (STOP == TRUE) {
@@ -256,7 +260,8 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                 byte = read(fd, &buf, 1);
 
                 if (byte > 0) {
-                    STOP = process_state_disc(buf);
+                    //STOP = process_state_disc(buf);
+                    STOP = process_message_state(buf, A, DISC);
                 }
             }
 
@@ -270,14 +275,16 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                     alarm(ll.timeout);
                     alarmEnabled = TRUE;
 
-                    send_supervision_frame(DISC, fd);
+                    //send_supervision_frame(DISC, fd);
+                    send_supervision_frame_2(A_RECEIVER, DISC, fd);
                 }
 
                 while (STOP == FALSE && alarmEnabled == TRUE) {
                     byte = read(fd, &buf, 1);
 
                     if (byte > 0) {
-                        STOP = process_state_emissor(buf);
+                        //STOP = process_state_emissor(buf);
+                        STOP = process_message_state(buf, A_RECEIVER, UA);
                     }
 
                     if (STOP) {
@@ -299,9 +306,11 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
                         alarmEnabled = TRUE;
 
                         if (cycle == 0)
-                            send_supervision_frame(DISC, fd);
+                            //send_supervision_frame(DISC, fd);
+                            send_supervision_frame_2(A, DISC, fd);
                         else
-                            send_supervision_frame(UA, fd);
+                            //send_supervision_frame(UA, fd);
+                            send_supervision_frame_2(A_RECEIVER, UA, fd);
                     }
 
                     if (cycle == 1) {
@@ -314,9 +323,11 @@ int llclose(int showStatistics, int fd, LinkLayer ll)
 
                         if (byte > 0) {
                             if (cycle == 0) 
-                                STOP = process_state_disc(buf);
+                                //STOP = process_state_disc(buf);
+                                STOP = process_message_state(buf, A_RECEIVER, DISC);
                             else                                           
-                                STOP = process_state_emissor(buf);          
+                                //STOP = process_state_emissor(buf);  
+                                STOP = process_message_state(buf, A, UA);   
                         }
 
                         if (STOP == TRUE) {
@@ -409,6 +420,12 @@ int close_serial_port(int fd) {
 
 int send_supervision_frame(unsigned char C, int fd) {
     unsigned char frame[] = {FLAG, A, C, A^C, FLAG};
+    return write(fd, frame, 5);
+}
+
+// teste
+int send_supervision_frame_2(unsigned char a,unsigned char c, int fd) {
+    unsigned char frame[] = {FLAG, a, c, a^c, FLAG};
     return write(fd, frame, 5);
 }
 

@@ -3,6 +3,51 @@
 #include "state_machine.h"
 #include "utils.h"
 
+int process_message_state(unsigned char buf, unsigned char a, unsigned char c) {
+    static STATE state = START;
+
+    switch (state) {
+        
+        case START:
+            if (buf == FLAG) state = FLAG_RCV;
+            break;
+
+        case FLAG_RCV:
+            if (buf == a) state = A_RCV;
+            else if (buf == FLAG) state = FLAG_RCV;
+            else state = START;
+            break;
+
+        case A_RCV:
+            if (buf == c) state = C_RCV;
+            else if (buf == FLAG) state = FLAG_RCV;
+            else state = START;
+            break;
+
+        case C_RCV:
+            if (buf == (a^c)) state = BCC1_RCV;
+            else if (buf == FLAG) state = FLAG_RCV;
+            else state = START;
+            break;
+
+        case BCC1_RCV:
+            if (buf == FLAG) state = STOP_RCV;
+            else state = START;
+            break;
+
+        default:
+            break;
+    }
+
+    if (state == STOP_RCV) {
+        state = START;
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
 int process_state_receiver(unsigned char buf) {
     static STATE state = START;
 
@@ -134,6 +179,7 @@ int process_state_disc(unsigned char buf) {
 
     return 0;
 }
+*/
 
 int process_state_information_trama(unsigned char* packet, unsigned char buf, int* pos, int* tx) {
     static STATE state = START;

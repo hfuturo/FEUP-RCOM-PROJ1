@@ -55,6 +55,10 @@ int close_serial_port(int fd);
 // Envia um pacote de supervisão
 int send_supervision_frame(unsigned char C, int fd);
 
+//Teste
+// Envia um pacote de supervisão
+int send_supervision_frame_2(unsigned char a,unsigned char c, int fd);
+
 // Calcula o BCC2
 unsigned char calculateBCC2(const unsigned char* packet, int packet_size);
 

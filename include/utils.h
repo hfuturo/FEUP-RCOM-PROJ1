@@ -3,6 +3,7 @@
 
 #define FLAG            0x7E
 #define A               0x03
+#define A_RECEIVER      0x01    //teste
 #define SET             0x03
 #define UA              0x07
 #define BCC1_RECEIVER   (A^UA)  // bcc1 enviado pelo recetor
