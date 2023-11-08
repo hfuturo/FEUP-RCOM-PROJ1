@@ -191,6 +191,9 @@ int llread(int fd, unsigned char *packet)
 {
     printf("\nENTER llread\n");
 
+    static int time = 0;
+    int counter = 0;
+
     int error, number_of_tries = 0;
     STOP = FALSE;
     printf("rx: %d\n", rxTrama);
@@ -204,7 +207,12 @@ int llread(int fd, unsigned char *packet)
 
         if (bytes_received > 0) {
             error = process_state_information_trama(packet, buf, &packet_size, &tx);
-            
+            if (time > 2) {
+                int number = rand() % 100 + 1;
+                if (number <= 50 && counter == 30) {
+                    buf ^= 0xFF;
+                }
+            }  
             // emissor run out of tries
             if(error == -2){
                 printf("emissor run out of tries\n");
@@ -231,9 +239,10 @@ int llread(int fd, unsigned char *packet)
                 rxTrama = rxTrama == 0 ? 1 : 0;
                 STOP = TRUE;
             }
+            counter++;
         }
     }
-
+    time++;
     printf("\nLEFT llread\n");
     return packet_size;
 }

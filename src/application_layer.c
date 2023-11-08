@@ -37,6 +37,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     ll.nRetransmissions = nTries;
     ll.timeout = timeout;
 
+    clock_t begin = clock();
     int fd = llopen(ll);
 
     if (fd < 0) {
@@ -71,6 +72,18 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
 
     // nao esquecer estatisticas!
     llclose(SHOW_STATISTICS, fd, ll);
+    clock_t end = clock();
+    double time_spend = (double)(end - begin)/CLOCKS_PER_SEC;
+    printf("Time spend %.2f \n", time_spend);
+    long int fsize = 10968 * 8;
+    double R = (double) (fsize/time_spend);
+    float ef = R/9600;
+    //float ef = R/2400;
+    //float ef = R/4800;
+    //float ef = R/19200;
+    //float ef = R/38400;
+    printf("R: %lf \n", R);
+    printf("Eficiencia: %.2f%% \n", (ef*100));
 }
 
 unsigned char* make_control_packet(unsigned int control_field, const char* file_name, long int file_size, long int *packet_size) {

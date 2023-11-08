@@ -3,10 +3,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <termios.h>
 
 #include "application_layer.h"
 
-#define BAUDRATE 9600
+#define BAUDRATE B9600
+//#define BAUDRATE B4800
+//#define BAUDRATE B2400
+//#define BAUDRATE B19200
+//#define BAUDRATE B38400
 #define N_TRIES 3
 #define TIMEOUT 4
 
